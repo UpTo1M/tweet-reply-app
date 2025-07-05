@@ -10,9 +10,7 @@ function App() {
 
   useEffect(() => {
     const savedReply = localStorage.getItem('latestReply');
-    if (savedReply) {
-      setReply(savedReply);
-    }
+    if (savedReply) setReply(savedReply);
   }, []);
 
   const handleCopy = () => {
@@ -29,28 +27,37 @@ function App() {
     const prompt = `Buatkan balasan untuk tweet berikut dengan gaya ${tone} dalam bahasa ${language === 'id' ? 'Indonesia' : 'Inggris'}:\n\n"${tweet}"`;
 
     try {
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_OPENAI_KEY}`,
-        },
-        body: JSON.stringify({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: prompt }],
-          temperature: 0.7,
-        }),
-      });
+      const res = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-goog-api-key': import.meta.env.VITE_GEMINI_KEY
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [{ text: prompt }]
+              }
+            ]
+          })
+        }
+      );
 
       const data = await res.json();
-      const aiReply = data.choices?.[0]?.message?.content;
-      const finalReply = aiReply || 'Gagal mendapatkan balasan.';
+      console.log('Gemini response:', data);
 
-      setReply(finalReply);
-      localStorage.setItem('latestReply', finalReply);
+      const aiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (aiReply) {
+        setReply(aiReply.trim());
+        localStorage.setItem('latestReply', aiReply.trim());
+      } else {
+        setReply('Gagal mendapatkan balasan dari Gemini.\n' + JSON.stringify(data));
+      }
     } catch (err) {
-      console.error(err);
-      setReply('Terjadi kesalahan saat menghubungi AI.');
+      console.error('Error:', err);
+      setReply('Terjadi kesalahan saat menghubungi Gemini API.');
     } finally {
       setLoading(false);
     }
@@ -68,7 +75,7 @@ function App() {
           </button>
         </div>
 
-        <h1 className="text-2xl font-bold mb-4">Tweet Reply Generator</h1>
+        <h1 className="text-2xl font-bold mb-4">Tweet Reply Generator (Gemini)</h1>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           <textarea
